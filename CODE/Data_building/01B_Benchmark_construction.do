@@ -1,156 +1,126 @@
-*=== NACI Report: 2026
-*=== Chapter title: 
-*				Sustainability and climate Change 
-*				Climate Change Mitigation Technologies
-*=== Objective: 
-* - Select patents constituting the benchmark related to each CCMT technology fields
+*===============================================================================
+* NACI Report 2026
+* Chapter: Sustainability and Climate Change – Climate Change Mitigation Technologies
+*
+* Objective:
+* - Construct IPC-based benchmark patent sets for each CCMT technology field
+* - Benchmark defined as IPC classes covering 75% of mitigation patents
+* - IPC 4-digit used as benchmark technology definition (EPO standard)
+*===============================================================================
 
-*======== 
-*======== 
-*======== SELECTION OF THE BENCHMARK FOR EACH CCMT Y02 TECHNOLOGY CATEGORIES ===========
-*======== 				
-*======== 
-*======== 
+clear all
+set more off
 
-*== Selection of the technology codes to create the benchmark for each technoloy fields
-* Prcentage of coverage used: 75% 
-*(we select the ipc code which are the most represented in the given technology 
-* class until covering 75% of the CCMT patents by technology)
+*===============================================================================
+* 1. LINK MITIGATION PATENTS TO IPC CODES
+*===============================================================================
 
-/// 1: Add ipc codes to the selected mitigation patents
-use "$datapath/Patstat_mitigation2018.dta", clear
-mmerge appln_id using "$patstpath/general/ipc_codes.dta", unmatched(none)
-drop _m
-save "$datapath/Merge_ipc_Y02_classification_Mitig.dta",replace
-
-
-*=== A : SELECTION BENCHMARK 3 FIRST DIGITS
-
- ///  Select the benchmark using the 3 first digits of the ipc_codes
- /// Select icp_codes representing 75% of all patents by technology class
- /// Except CCMT patents in Y02, for whose we take all patents in PATSTAT as a benchmark 
- use "$datapath/Merge_ipc_Y02_classification_Obvious.dta", clear
- drop if technology =="Y02" //For Y02, we use the entire PATSTAT database as a benchmark
- * The benchmark is defined using the three first digit of the ipc_code
- gen benchmark=substr(ipc_code,1,3)
- browse
- gen byte x=1
- * Number of patents by benchmark (ipc code) within a technology field
- egen nb_bench_tech = sum(x), by(technology benchmark)
- 
-  * Number of patents by technology field
- egen nb_technology= sum(x), by(technology)
- 
- * Select ipc code(3-digits) representing 75% of all patents in the technology class
- gsort technology -nb_bench_tech
- keep technology benchmark nb_bench_tech nb_techno
- duplicates drop
- gen share_tech = nb_bench_tech / nb_technology
- gsort technology -share_tech
- bysort technology: gen sum_share = sum(share_tech)
- gen bench_tech = benchmark if sum_share <0.75
- keep technology bench_tech share_tech sum_share
- drop if bench_tech ==""
- duplicates drop
- save "$datapath/Selected_3digits_benchmark_Mitig.dta", replace
-
-
-*== Construction of the benchmark by technology: selection of all the technologies 
-* with the IPC codes corresponding to the benchmark identified
-
-/// Selection of the technologies (appln_id) using the 3 first IPC identification characters  
-/// Keep only one appln_id by benchmark
-use "$patstpath/general/ipc_codes.dta", clear
-gen bench_tech=substr(ipc_code,1,3)
-sort appln_id bench_tech
-quietly by appln_id bench_tech: gen dup=cond(_N==1,0,_n)
-drop if dup>1
-keep appln_id bench_tech
-save "$patstpath/general/ipc_codes_IPC3.dta",replace
-
-/// Merge ipc 3 digits with those constituting the selected benchmarks
-use  "$datapath/Selected_3digits_benchmark_Mitig.dta", clear
-keep technology bench_tech
+use "$datapath/Patstat_mitigation2026.dta", clear
+keep appln_id technology   // technology = IPC 4-digit benchmark
 duplicates drop
-mmerge bench_tech using "$patstpath/general/ipc_codes_IPC3.dta", unmatch(master)
-drop _m
-*Add all patents contained in PATSTAT to constitute the benchmark for all CCMT (Technology ="Y02")
-append using "$patstpath/general/ipc_codes_IPC3.dta"
-replace technology ="Y02" if technology==""
-sort technology appln_id
-quietly by technology appln_id: gen dup=cond(_N==1,0,_n)
-drop if dup>1
-compress
-drop dup
-save "$datapath/Complete_3digits_benchmark_Mitig.dta", replace
 
+merge 1:m appln_id using "$patstpath/general/ipc_codes.dta"
+assert _merge == 3
+drop _merge
 
+save "$datapath/Merge_ipc_CCMT_mitigation_2026.dta", replace
 
-*=== B : SELECTION BENCHMARK 4 FIRST DIGITS
+*===============================================================================
+* 2. BENCHMARK SELECTION – IPC 3-DIGIT LEVEL
+*===============================================================================
 
- ///  Select the benchmark using the 4 first digits of the ipc_codes
- /// Select icp_codes representing 75% of all patents by technology class
- /// Except CCMT patents in Y02, for whose we take all patents in PATSTAT as a benchmark 
- use "$datapath/Merge_ipc_Y02_classification_Obvious.dta", clear
- drop if technology =="Y02" //For Y02, we use the entire PATSTAT database as a benchmark
- * The benchmark is defined using the four first digit of the ipc_code
- gen benchmark=substr(ipc_code,1,4)
- browse
- gen byte x=1
- * Number of patents by benchmark (ipc code) within a technology field
- egen nb_bench_tech = sum(x), by(technology benchmark)
- 
-  * Number of patents by technology field
- egen nb_technology= sum(x), by(technology)
- 
- * Select ipc code(4-digits) representing 75% of all patents in the technology class
- gsort technology -nb_bench_tech
- keep technology benchmark nb_bench_tech nb_techno
- duplicates drop
- gen share_tech = nb_bench_tech / nb_technology
- gsort technology -share_tech
- bysort technology: gen sum_share = sum(share_tech)
- gen bench_tech = benchmark if sum_share <0.75
- keep technology bench_tech share_tech sum_share
- drop if bench_tech ==""
- duplicates drop
- save "$datapath/Selected_4digits_benchmark_Mitig.dta", replace
+use "$datapath/Merge_ipc_CCMT_mitigation_2026.dta", clear
 
+* Exclude aggregate CCMT category (Y02)
+drop if technology == "Y02"
 
-*== Construction of the benchmark by technology: 
-*Selection of all the technologies with the IPC codes coresponding to the benchmark identified
+gen ipc3 = substr(ipc_code,1,3)
+label var ipc3 "IPC 3-digit benchmark class"
 
-/// Selection of the technologies (appln_id) using the 4 first IPC identification characters  
-/// Keep only one appln_id by benchmark
-use "$patstpath/general/ipc_codes.dta", clear
-gen bench_tech=substr(ipc_code,1,4)
-sort appln_id bench_tech
-quietly by appln_id bench_tech: gen dup=cond(_N==1,0,_n)
-drop if dup>1
-keep appln_id bench_tech
-save "$patstpath/general/ipc_codes_IPC4.dta",replace
+* Count patents by technology × IPC class
+contract technology ipc3
+rename _freq nb_bench_tech
 
-/// Merge ipc 4 digits with those constituting the selected benchmarks
-use  "$datapath/Selected_4digits_benchmark_Obvious.dta", clear
-keep technology bench_tech
+* Total patents by technology
+bysort technology: egen nb_technology = total(nb_bench_tech)
+
+* Share and cumulative coverage
+gen share = nb_bench_tech / nb_technology
+gsort technology -share
+by technology: gen cum_share = sum(share)
+
+* Select IPC classes up to 75% coverage
+keep if cum_share <= 0.75
+keep technology ipc3
 duplicates drop
-mmerge bench_tech using "$patstpath/general/ipc_codes_IPC4.dta", unmatch(master)
-drop _m
-*Add all patents contained in PATSTAT to constitute the benchmark for all CCMT (Technology ="Y02")
-append using "$patstpath/general/ipc_codes_IPC4.dta"
-replace technology ="Y02" if technology==""
-sort technology appln_id
-quietly by technology appln_id: gen dup=cond(_N==1,0,_n)
-drop if dup>1
+
+save "$datapath/Selected_IPC3_benchmark_CCMT_2026.dta", replace
+
+*===============================================================================
+* 3. CONSTRUCT IPC 3-DIGIT BENCHMARK PATENT SETS
+*===============================================================================
+
+use "$patstpath/general/ipc_codes.dta", clear
+gen ipc3 = substr(ipc_code,1,3)
+keep appln_id ipc3
+duplicates drop
+
+merge m:1 ipc3 using "$datapath/Selected_IPC3_benchmark_CCMT_2026.dta"
+assert _merge == 3 | _merge == 1
+drop _merge
+
+* Add full PATSTAT benchmark for aggregate CCMT (Y02)
+gen technology = "Y02" if missing(technology)
+
+duplicates drop technology appln_id
+save "$datapath/Complete_IPC3_benchmark_CCMT_2026.dta", replace
+
+*===============================================================================
+* 4. BENCHMARK SELECTION – IPC 4-DIGIT LEVEL (REFERENCE CASE)
+*===============================================================================
+
+use "$datapath/Merge_ipc_CCMT_mitigation_2026.dta", clear
+drop if technology == "Y02"
+
+gen ipc4 = substr(ipc_code,1,4)
+label var ipc4 "IPC 4-digit benchmark class"
+
+contract technology ipc4
+rename _freq nb_bench_tech
+
+bysort technology: egen nb_technology = total(nb_bench_tech)
+
+gen share = nb_bench_tech / nb_technology
+gsort technology -share
+by technology: gen cum_share = sum(share)
+
+keep if cum_share <= 0.75
+keep technology ipc4
+duplicates drop
+
+save "$datapath/Selected_IPC4_benchmark_CCMT_2026.dta", replace
+
+*===============================================================================
+* 5. CONSTRUCT IPC 4-DIGIT BENCHMARK PATENT SETS
+*===============================================================================
+
+use "$patstpath/general/ipc_codes.dta", clear
+gen ipc4 = substr(ipc_code,1,4)
+keep appln_id ipc4
+duplicates drop
+
+merge m:1 ipc4 using "$datapath/Selected_IPC4_benchmark_CCMT_2026.dta"
+assert _merge == 3 | _merge == 1
+drop _merge
+
+gen technology = "Y02" if missing(technology)
+
+duplicates drop technology appln_id
 compress
-drop dup
-save "$datapath/Complete_4digits_benchmark_Mitig.dta", replace
 
+save "$datapath/Complete_IPC4_benchmark_CCMT_2026.dta", replace
 
-
-*=============================================
-*=============================================
-*=============================================
-*=============================================
-*=============================================
+*===============================================================================
+* End of benchmark construction script
+*===============================================================================
 
